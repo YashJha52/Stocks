@@ -1,65 +1,195 @@
 import pandas as pd
 import numpy as np
+from datetime import datetime
+
 
 class ReportGenerator:
-    def generate_financial_report(self, ticker, company_info, financial_data, predictions):
-        """Generate comprehensive financial report"""
-        
-        report = f"""
-# Financial Analysis Report: {ticker}
+
+    def generate_financial_report(
+        self,
+        ticker: str,
+        company_info: dict,
+        financial_data: dict,
+        predictions: pd.DataFrame,
+    ) -> str:
+        """
+        Generate a comprehensive markdown financial report.
+
+        Parameters
+        ----------
+        ticker          : stock symbol
+        company_info    : dict from DataLoader.get_company_info()
+        financial_data  : dict from DataLoader.get_financial_statements()
+                          must contain a 'metrics' key (added by DataLoader)
+        predictions     : DataFrame returned by predict_stock() or StockPredictor.predict()
+                          index = future dates, columns include 'ensemble'
+        """
+
+        generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        report = f"""# Financial Analysis Report: {ticker}
+*Generated: {generated_at}*
+
+---
 
 ## Company Overview
-**Name**: {company_info.get('longName', 'N/A')}
-**Sector**: {company_info.get('sector', 'N/A')}
-**Industry**: {company_info.get('industry', 'N/A')}
-**Market Cap**: ${company_info.get('marketCap', 0):,.0f}
-**Current Price**: ${company_info.get('currentPrice', 0):.2f}
 
-## Financial Metrics
-"""
-        
-        # Add key metrics
-        if 'metrics' in financial_data:
-            metrics = financial_data['metrics']
-            report += f"""
-- **P/E Ratio**: {metrics.get('peRatio', 'N/A')}
-- **P/B Ratio**: {metrics.get('priceToBook', 'N/A')}
-- **Debt-to-Equity**: {metrics.get('debtToEquity', 'N/A')}
-- **ROE**: {metrics.get('returnOnEquity', 'N/A')}%
-- **Profit Margin**: {metrics.get('profitMargins', 'N/A')}%
-"""
-        
-        # Add prediction analysis
-        if not predictions.empty:
-            current_price = predictions.iloc[0].mean()
-            future_price = predictions.iloc[-1].mean()
-            price_change = ((future_price - current_price) / current_price) * 100
-            
-            report += f"""
-## Stock Price Prediction
-**Current Price**: ${current_price:.2f}
-**Predicted Price (30 days)**: ${future_price:.2f}
-**Expected Change**: {price_change:+.2f}%
+| Field        | Value |
+|--------------|-------|
+| Name         | {company_info.get("longName", "N/A")} |
+| Sector       | {company_info.get("sector", "N/A")} |
+| Industry     | {company_info.get("industry", "N/A")} |
+| Market Cap   | {_fmt_currency(company_info.get("marketCap", 0))} |
+| Current Price | ${_fmt_num(company_info.get("currentPrice", 0))} |
+| 52-week High | ${_fmt_num(company_info.get("fiftyTwoWeekHigh"))} |
+| 52-week Low  | ${_fmt_num(company_info.get("fiftyTwoWeekLow"))} |
 
-## Investment Recommendation
+---
+
+## Key Financial Metrics
 """
-            
-            if price_change > 5:
-                report += "**BUY** - The model predicts significant upside potential.\n"
-            elif price_change < -5:
-                report += "**SELL** - The model predicts potential decline.\n"
+
+        metrics = financial_data.get("metrics", {})
+        if metrics:
+            report += f"""
+| Metric              | Value |
+|---------------------|-------|
+| P/E Ratio           | {_fmt_metric(metrics.get("peRatio"))} |
+| P/B Ratio           | {_fmt_metric(metrics.get("priceToBook"))} |
+| Debt-to-Equity      | {_fmt_metric(metrics.get("debtToEquity"))} |
+| Return on Equity    | {_fmt_pct(metrics.get("returnOnEquity"))} |
+| Profit Margin       | {_fmt_pct(metrics.get("profitMargins"))} |
+"""
+        else:
+            report += "\n*Financial metrics unavailable.*\n"
+
+        # ---- Prediction section ----
+        if predictions is not None and not predictions.empty:
+            ensemble_col = "ensemble" if "ensemble" in predictions.columns \
+                           else predictions.columns[0]
+
+            current_price = float(company_info.get("currentPrice", 0)) or \
+                            float(predictions[ensemble_col].iloc[0])
+            future_price  = float(predictions[ensemble_col].iloc[-1])
+
+            if current_price > 0:
+                price_change_pct = (future_price - current_price) / current_price * 100
             else:
-                report += "**HOLD** - The model predicts stable price movement.\n"
-        
+                price_change_pct = 0.0
+
+            # Volatility of the forecast itself (proxy for model uncertainty)
+            forecast_std = float(predictions[ensemble_col].std())
+            forecast_cv  = forecast_std / current_price * 100 if current_price else 0
+
+            report += f"""
+---
+
+## Price Forecast ({len(predictions)}-day outlook)
+
+| | Price |
+|---|---|
+| Current price          | ${current_price:.2f} |
+| Forecast (day 1)       | ${float(predictions[ensemble_col].iloc[0]):.2f} |
+| Forecast (final day)   | ${future_price:.2f} |
+| Expected change        | {price_change_pct:+.2f}% |
+| Forecast uncertainty   | ±{forecast_cv:.1f}% (coefficient of variation) |
+
+### Model consensus
+
+| Model | Forecast (day 1) |
+|-------|-----------------|
+"""
+            day1 = predictions.iloc[0]
+            for col in predictions.columns:
+                if col != "ensemble":
+                    report += f"| {col.upper():10s} | ${float(day1[col]):.2f} |\n"
+            report += f"| **Ensemble** | **${float(day1['ensemble']):.2f}** |\n"
+
+            report += f"""
+### Signal
+"""
+            if abs(price_change_pct) < 1:
+                signal = "**HOLD** — Models project minimal price movement."
+            elif price_change_pct >= 5:
+                signal = "**BUY** — Models project meaningful upside."
+            elif price_change_pct >= 1:
+                signal = "**MILD BUY** — Models project moderate upside."
+            elif price_change_pct <= -5:
+                signal = "**SELL** — Models project meaningful downside."
+            else:
+                signal = "**MILD SELL** — Models project moderate downside."
+
+            report += f"{signal}\n"
+
+        else:
+            report += "\n*Forecast data unavailable.*\n"
+
         report += """
+---
+
 ## Risk Factors
-- Market volatility and economic conditions
-- Company-specific risks and competition
-- Model limitations and prediction uncertainty
+
+- Market volatility and macroeconomic conditions
+- Company-specific operational and competitive risks
+- Model limitations: predictions are based on historical price patterns only
+  and do not incorporate fundamental changes, news, or earnings surprises
+- Short forecast horizons (< 30 days) carry higher uncertainty
+
+---
 
 ## Disclaimer
-This report is generated using automated analysis and should not be considered as financial advice. 
-Please consult with a qualified financial advisor before making investment decisions.
+
+> This report is generated by an automated machine-learning system and is
+> provided for **informational purposes only**. It does **not** constitute
+> financial advice. Past performance is not indicative of future results.
+> Please consult a qualified financial adviser before making any investment
+> decision.
 """
-        
         return report
+
+
+# ---------------------------------------------------------------------------
+# Formatting helpers
+# ---------------------------------------------------------------------------
+
+def _fmt_num(value, decimals: int = 2) -> str:
+    if value is None:
+        return "N/A"
+    try:
+        return f"{float(value):,.{decimals}f}"
+    except (TypeError, ValueError):
+        return "N/A"
+
+
+def _fmt_currency(value) -> str:
+    if not value:
+        return "N/A"
+    try:
+        v = float(value)
+        if v >= 1e12:
+            return f"${v/1e12:.2f}T"
+        if v >= 1e9:
+            return f"${v/1e9:.2f}B"
+        if v >= 1e6:
+            return f"${v/1e6:.2f}M"
+        return f"${v:,.0f}"
+    except (TypeError, ValueError):
+        return "N/A"
+
+
+def _fmt_metric(value) -> str:
+    if value is None or value == "N/A":
+        return "N/A"
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _fmt_pct(value) -> str:
+    if value is None or value == "N/A":
+        return "N/A"
+    try:
+        return f"{float(value):.2f}%"
+    except (TypeError, ValueError):
+        return str(value)
