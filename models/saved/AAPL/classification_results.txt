@@ -1,0 +1,47 @@
+--- Classification Evaluation Metrics for AAPL ---
+
+          Accuracy  F1 Score
+logistic    0.5411    0.5351
+ridge       0.5411    0.5351
+rf          0.5411    0.5412
+gb          0.4589    0.4587
+xgb         0.5274    0.5260
+ensemble    0.5205    0.5186
+
+--- Confusion Matrices ---
+
+[LOGISTIC]
+True Negatives  (Predicted Down, Actual Down) : 29
+False Positives (Predicted Up, Actual Down)   : 40
+False Negatives (Predicted Down, Actual Up)   : 27
+True Positives  (Predicted Up, Actual Up)     : 50
+
+[RIDGE]
+True Negatives  (Predicted Down, Actual Down) : 29
+False Positives (Predicted Up, Actual Down)   : 40
+False Negatives (Predicted Down, Actual Up)   : 27
+True Positives  (Predicted Up, Actual Up)     : 50
+
+[RF]
+True Negatives  (Predicted Down, Actual Down) : 36
+False Positives (Predicted Up, Actual Down)   : 33
+False Negatives (Predicted Down, Actual Up)   : 34
+True Positives  (Predicted Up, Actual Up)     : 43
+
+[GB]
+True Negatives  (Predicted Down, Actual Down) : 34
+False Positives (Predicted Up, Actual Down)   : 35
+False Negatives (Predicted Down, Actual Up)   : 44
+True Positives  (Predicted Up, Actual Up)     : 33
+
+[XGB]
+True Negatives  (Predicted Down, Actual Down) : 41
+False Positives (Predicted Up, Actual Down)   : 28
+False Negatives (Predicted Down, Actual Up)   : 41
+True Positives  (Predicted Up, Actual Up)     : 36
+
+[ENSEMBLE]
+True Negatives  (Predicted Down, Actual Down) : 31
+False Positives (Predicted Up, Actual Down)   : 38
+False Negatives (Predicted Down, Actual Up)   : 32
+True Positives  (Predicted Up, Actual Up)     : 45

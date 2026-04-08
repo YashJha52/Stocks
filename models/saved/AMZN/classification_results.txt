@@ -1,0 +1,47 @@
+--- Classification Evaluation Metrics for AMZN ---
+
+          Accuracy  F1 Score
+logistic    0.5479    0.5204
+ridge       0.5411    0.5114
+rf          0.5000    0.4840
+gb          0.5274    0.5188
+xgb         0.5137    0.5139
+ensemble    0.5342    0.5093
+
+--- Confusion Matrices ---
+
+[LOGISTIC]
+True Negatives  (Predicted Down, Actual Down) : 20
+False Positives (Predicted Up, Actual Down)   : 48
+False Negatives (Predicted Down, Actual Up)   : 18
+True Positives  (Predicted Up, Actual Up)     : 60
+
+[RIDGE]
+True Negatives  (Predicted Down, Actual Down) : 19
+False Positives (Predicted Up, Actual Down)   : 49
+False Negatives (Predicted Down, Actual Up)   : 18
+True Positives  (Predicted Up, Actual Up)     : 60
+
+[RF]
+True Negatives  (Predicted Down, Actual Down) : 21
+False Positives (Predicted Up, Actual Down)   : 47
+False Negatives (Predicted Down, Actual Up)   : 26
+True Positives  (Predicted Up, Actual Up)     : 52
+
+[GB]
+True Negatives  (Predicted Down, Actual Down) : 26
+False Positives (Predicted Up, Actual Down)   : 42
+False Negatives (Predicted Down, Actual Up)   : 27
+True Positives  (Predicted Up, Actual Up)     : 51
+
+[XGB]
+True Negatives  (Predicted Down, Actual Down) : 33
+False Positives (Predicted Up, Actual Down)   : 35
+False Negatives (Predicted Down, Actual Up)   : 36
+True Positives  (Predicted Up, Actual Up)     : 42
+
+[ENSEMBLE]
+True Negatives  (Predicted Down, Actual Down) : 20
+False Positives (Predicted Up, Actual Down)   : 48
+False Negatives (Predicted Down, Actual Up)   : 20
+True Positives  (Predicted Up, Actual Up)     : 58

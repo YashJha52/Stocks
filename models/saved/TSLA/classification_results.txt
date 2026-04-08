@@ -1,0 +1,47 @@
+--- Classification Evaluation Metrics for TSLA ---
+
+          Accuracy  F1 Score
+logistic    0.5685    0.5605
+ridge       0.5616    0.5526
+rf          0.4384    0.4379
+gb          0.4521    0.4479
+xgb         0.5342    0.5339
+ensemble    0.5137    0.5139
+
+--- Confusion Matrices ---
+
+[LOGISTIC]
+True Negatives  (Predicted Down, Actual Down) : 50
+False Positives (Predicted Up, Actual Down)   : 20
+False Negatives (Predicted Down, Actual Up)   : 43
+True Positives  (Predicted Up, Actual Up)     : 33
+
+[RIDGE]
+True Negatives  (Predicted Down, Actual Down) : 50
+False Positives (Predicted Up, Actual Down)   : 20
+False Negatives (Predicted Down, Actual Up)   : 44
+True Positives  (Predicted Up, Actual Up)     : 32
+
+[RF]
+True Negatives  (Predicted Down, Actual Down) : 28
+False Positives (Predicted Up, Actual Down)   : 42
+False Negatives (Predicted Down, Actual Up)   : 40
+True Positives  (Predicted Up, Actual Up)     : 36
+
+[GB]
+True Negatives  (Predicted Down, Actual Down) : 25
+False Positives (Predicted Up, Actual Down)   : 45
+False Negatives (Predicted Down, Actual Up)   : 35
+True Positives  (Predicted Up, Actual Up)     : 41
+
+[XGB]
+True Negatives  (Predicted Down, Actual Down) : 35
+False Positives (Predicted Up, Actual Down)   : 35
+False Negatives (Predicted Down, Actual Up)   : 33
+True Positives  (Predicted Up, Actual Up)     : 43
+
+[ENSEMBLE]
+True Negatives  (Predicted Down, Actual Down) : 36
+False Positives (Predicted Up, Actual Down)   : 34
+False Negatives (Predicted Down, Actual Up)   : 37
+True Positives  (Predicted Up, Actual Up)     : 39

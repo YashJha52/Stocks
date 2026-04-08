@@ -1,0 +1,47 @@
+--- Classification Evaluation Metrics for MSFT ---
+
+          Accuracy  F1 Score
+logistic    0.4658    0.3822
+ridge       0.4726    0.4002
+rf          0.5205    0.4732
+gb          0.4589    0.4178
+xgb         0.4452    0.4258
+ensemble    0.5000    0.4251
+
+--- Confusion Matrices ---
+
+[LOGISTIC]
+True Negatives  (Predicted Down, Actual Down) : 8
+False Positives (Predicted Up, Actual Down)   : 67
+False Negatives (Predicted Down, Actual Up)   : 11
+True Positives  (Predicted Up, Actual Up)     : 60
+
+[RIDGE]
+True Negatives  (Predicted Down, Actual Down) : 10
+False Positives (Predicted Up, Actual Down)   : 65
+False Negatives (Predicted Down, Actual Up)   : 12
+True Positives  (Predicted Up, Actual Up)     : 59
+
+[RF]
+True Negatives  (Predicted Down, Actual Down) : 17
+False Positives (Predicted Up, Actual Down)   : 58
+False Negatives (Predicted Down, Actual Up)   : 12
+True Positives  (Predicted Up, Actual Up)     : 59
+
+[GB]
+True Negatives  (Predicted Down, Actual Down) : 15
+False Positives (Predicted Up, Actual Down)   : 60
+False Negatives (Predicted Down, Actual Up)   : 19
+True Positives  (Predicted Up, Actual Up)     : 52
+
+[XGB]
+True Negatives  (Predicted Down, Actual Down) : 20
+False Positives (Predicted Up, Actual Down)   : 55
+False Negatives (Predicted Down, Actual Up)   : 26
+True Positives  (Predicted Up, Actual Up)     : 45
+
+[ENSEMBLE]
+True Negatives  (Predicted Down, Actual Down) : 11
+False Positives (Predicted Up, Actual Down)   : 64
+False Negatives (Predicted Down, Actual Up)   : 9
+True Positives  (Predicted Up, Actual Up)     : 62

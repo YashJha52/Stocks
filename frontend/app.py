@@ -20,53 +20,41 @@ from src.report_generator import ReportGenerator
 from src.financial_forecaster import FinancialForecaster
 
 # ---------------------------------------------------------------------------
-# Utility functions  (defined first to avoid reference-before-definition)
+# Utility functions
 # ---------------------------------------------------------------------------
 
 def _fmt_cap(value) -> str:
-    if not value:
-        return "N/A"
+    if not value: return "N/A"
     try:
         v = float(value)
         if v >= 1e12: return f"${v/1e12:.2f}T"
         if v >= 1e9:  return f"${v/1e9:.2f}B"
         if v >= 1e6:  return f"${v/1e6:.2f}M"
         return f"${v:,.0f}"
-    except (TypeError, ValueError):
-        return "N/A"
-
+    except: return "N/A"
 
 def _fmt_val(value) -> str:
-    if value is None or value == "N/A":
-        return "N/A"
+    if value is None or value == "N/A": return "N/A"
     try:
         v = float(value)
-        if abs(v) >= 1e9:  return f"${v/1e9:.2f}B"
-        if abs(v) >= 1e6:  return f"${v/1e6:.2f}M"
-        if abs(v) >= 1e3:  return f"${v/1e3:.2f}K"
+        if abs(v) >= 1e9: return f"${v/1e9:.2f}B"
+        if abs(v) >= 1e6: return f"${v/1e6:.2f}M"
+        if abs(v) >= 1e3: return f"${v/1e3:.2f}K"
         return f"{v:,.2f}"
-    except (TypeError, ValueError):
-        return str(value)
-
+    except: return str(value)
 
 def _next_bday(base, offset: int):
     count, current = 0, base
     while count < offset:
         current += timedelta(days=1)
-        if current.weekday() < 5:
-            count += 1
+        if current.weekday() < 5: count += 1
     return current
-
 
 # ---------------------------------------------------------------------------
 # Page config
 # ---------------------------------------------------------------------------
 
-st.set_page_config(
-    page_title="Stock Predictor & Financial Analyst",
-    page_icon="📈",
-    layout="wide",
-)
+st.set_page_config(page_title="Stock Predictor & Financial Analyst", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -84,25 +72,18 @@ def load_data(ticker: str):
     loader = DataLoader()
     end   = datetime.now().strftime("%Y-%m-%d")
     start = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
-    company_info = loader.get_company_info(ticker)
-    stock_data   = loader.load_stock_data(ticker, start, end)
-    return company_info, stock_data
-
+    return loader.get_company_info(ticker), loader.load_stock_data(ticker, start, end)
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_financials(ticker: str, quarterly: bool):
-    loader = DataLoader()
-    return loader.get_financial_statements(ticker, quarterly=quarterly)
-
+    return DataLoader().get_financial_statements(ticker, quarterly=quarterly)
 
 @st.cache_resource(show_spinner=False)
 def get_trained_predictor(ticker: str, data_hash: int):
     model_dir = Path("models") / "saved" / ticker
     if model_dir.exists():
-        try:
-            return StockPredictor.load(model_dir)
-        except Exception:
-            pass
+        try: return StockPredictor.load(model_dir)
+        except: pass
 
     loader = DataLoader()
     end   = datetime.now().strftime("%Y-%m-%d")
@@ -111,25 +92,23 @@ def get_trained_predictor(ticker: str, data_hash: int):
 
     fe = StatisticalFeatures()
     features = fe.compute_features(stock_data)
-    features["target"] = stock_data["Close"].shift(-1)
+    features["target"] = (stock_data["Close"].shift(-1) > stock_data["Close"]).astype(float)
+    features.iloc[-1, features.columns.get_loc('target')] = np.nan
     features = features.dropna()
 
     X = features.drop(columns=["target"])
-    y = features["target"]
+    y = features["target"].astype(int)
 
     predictor = StockPredictor()
     predictor.train_models(X, y)
     return predictor
 
-
 # ---------------------------------------------------------------------------
 # Session state defaults
 # ---------------------------------------------------------------------------
 
-for key in ("predictions", "price_report", "fin_forecast_report",
-            "last_ticker", "financials"):
-    if key not in st.session_state:
-        st.session_state[key] = None
+for key in ("predictions", "price_report", "fin_forecast_report", "last_ticker", "financials", "simulated_prices"):
+    if key not in st.session_state: st.session_state[key] = None
 
 # ---------------------------------------------------------------------------
 # Sidebar
@@ -137,67 +116,50 @@ for key in ("predictions", "price_report", "fin_forecast_report",
 
 st.sidebar.markdown("## Stock Analysis")
 ticker        = st.sidebar.text_input("Ticker symbol", value="AAPL").strip().upper()
-forecast_days = st.sidebar.slider("Price forecast days", 5, 60, 30)
+forecast_days = st.sidebar.slider("Signal forecast days", 5, 60, 30)
 fin_periods   = st.sidebar.slider("Financial forecast periods", 1, 8, 4)
-quarterly     = st.sidebar.checkbox(
-    "Use quarterly reports",
-    value=True,
-    help="Quarterly data gives more historical points for a better forecast."
-)
-analyze_btn = st.sidebar.button("Analyse", use_container_width=True)
+quarterly     = st.sidebar.checkbox("Use quarterly reports", value=True)
+analyze_btn   = st.sidebar.button("Analyse", use_container_width=True)
 
-st.markdown('<h1 class="main-header">📈 Stock Predictor & Financial Analyst</h1>',
-            unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">📈 Stock Predictor & Financial Analyst</h1>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Tabs
 # ---------------------------------------------------------------------------
 
-tab_price, tab_forecast, tab_stats = st.tabs([
-    "📊 Price Analysis",
-    "📋 Financial Forecast",
-    "📐 Deep Dive",
-])
+tab_price, tab_forecast, tab_stats = st.tabs(["📊 Price & Signal", "📋 Financial Forecast", "📐 Deep Dive"])
 
 # ===========================================================================
-# TAB 1 — Price Analysis
+# TAB 1 — Price & Signal Analysis
 # ===========================================================================
 
 with tab_price:
     if analyze_btn and ticker:
         if st.session_state.last_ticker != ticker:
-            for k in ("predictions", "price_report", "fin_forecast_report", "financials"):
+            for k in ("predictions", "price_report", "fin_forecast_report", "financials", "simulated_prices"):
                 st.session_state[k] = None
             st.session_state.last_ticker = ticker
 
         with st.spinner(f"Loading data for {ticker}..."):
-            try:
-                company_info, stock_data = load_data(ticker)
-            except ValueError as exc:
-                st.error(str(exc))
-                st.stop()
+            try: company_info, stock_data = load_data(ticker)
+            except ValueError as exc: st.error(str(exc)); st.stop()
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Company",       company_info.get("longName", ticker))
-        col2.metric("Sector",        company_info.get("sector", "N/A"))
+        col1.metric("Company", company_info.get("longName", ticker))
+        col2.metric("Sector", company_info.get("sector", "N/A"))
         col3.metric("Current Price", f"${company_info.get('currentPrice', 0):.2f}")
-        col4.metric("Market Cap",    _fmt_cap(company_info.get("marketCap")))
+        col4.metric("Market Cap", _fmt_cap(company_info.get("marketCap")))
 
-        st.markdown('<h2 class="sub-header">Price History (12 months)</h2>',
-                    unsafe_allow_html=True)
+        st.markdown('<h2 class="sub-header">Price History (12 months)</h2>', unsafe_allow_html=True)
         fig = go.Figure(go.Candlestick(
-            x=stock_data.index,
-            open=stock_data["Open"], high=stock_data["High"],
-            low=stock_data["Low"],   close=stock_data["Close"],
-            name=ticker,
+            x=stock_data.index, open=stock_data["Open"], high=stock_data["High"],
+            low=stock_data["Low"], close=stock_data["Close"], name=ticker,
         ))
-        fig.update_layout(title=f"{ticker}", yaxis_title="Price (USD)",
-                          xaxis_rangeslider_visible=False, height=400)
+        fig.update_layout(title=f"{ticker}", yaxis_title="Price (USD)", xaxis_rangeslider_visible=False, height=400)
         st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown('<h2 class="sub-header">Price Forecast</h2>',
-                    unsafe_allow_html=True)
-        with st.spinner("Generating price forecast..."):
+        st.markdown('<h2 class="sub-header">Trading Signal Forecast</h2>', unsafe_allow_html=True)
+        with st.spinner("Generating signal forecast..."):
             try:
                 data_hash = hash(str(stock_data.index[-1]))
                 predictor = get_trained_predictor(ticker, data_hash)
@@ -205,81 +167,69 @@ with tab_price:
                 fe = StatisticalFeatures()
                 history = stock_data[["Open", "High", "Low", "Close", "Volume"]].copy()
                 forecast_records = []
+                simulated_trajectory = []
                 last_date = history.index[-1]
 
                 for step in range(forecast_days):
                     feats = fe.compute_features(history).dropna()
-                    if feats.empty:
-                        break
+                    if feats.empty: break
+                    
                     pred_df  = predictor.predict(feats.iloc[[-1]])
                     pred_row = pred_df.iloc[0]
                     next_date = _next_bday(last_date, step + 1)
-                    record = pred_row.to_dict()
-                    record["date"] = next_date
+                    
+                    record = {"date": next_date}
+                    for col in pred_row.index:
+                        record[col] = "UP" if int(pred_row[col]) == 1 else "DOWN"
                     forecast_records.append(record)
-                    ep = float(pred_row["ensemble"])
+                    
+                    signal = int(pred_row["ensemble"])
+                    last_close = history["Close"].iloc[-1]
+                    next_close = last_close * 1.005 if signal == 1 else last_close * 0.995
+                    
+                    simulated_trajectory.append({"date": next_date, "simulated_price": next_close})
+
                     new_row = pd.DataFrame(
-                        {"Open": ep, "High": ep*1.005, "Low": ep*0.995,
-                         "Close": ep,
-                         "Volume": history["Volume"].rolling(20).mean().iloc[-1]},
-                        index=[next_date],
+                        {"Open": last_close, "High": next_close*1.01, "Low": next_close*0.99,
+                         "Close": next_close, "Volume": history["Volume"].iloc[-1]}, index=[next_date],
                     )
                     history = pd.concat([history, new_row])
 
                 if forecast_records:
-                    pred_df = pd.DataFrame(forecast_records).set_index("date")
-                    st.session_state.predictions = pred_df
+                    st.session_state.predictions = pd.DataFrame(forecast_records).set_index("date")
+                    st.session_state.simulated_prices = pd.DataFrame(simulated_trajectory).set_index("date")
             except Exception as exc:
                 st.error(f"Forecast error: {exc}")
 
         if st.session_state.predictions is not None:
             pred_df = st.session_state.predictions
+            sim_df = st.session_state.simulated_prices
+            
             fig2 = go.Figure()
             hist_tail = stock_data["Close"].iloc[-60:]
+            fig2.add_trace(go.Scatter(x=hist_tail.index, y=hist_tail.values, mode="lines", name="Historical", line=dict(color="#888", width=1.5)))
+            
             fig2.add_trace(go.Scatter(
-                x=hist_tail.index, y=hist_tail.values,
-                mode="lines", name="Historical",
-                line=dict(color="#888", width=1.5)
+                x=sim_df.index, y=sim_df["simulated_price"],
+                mode="lines+markers", name="Simulated Trajectory",
+                line=dict(width=2.5, color="#1f77b4", dash="dot"),
             ))
-            for col in [c for c in pred_df.columns if c != "ensemble"]:
-                fig2.add_trace(go.Scatter(
-                    x=pred_df.index, y=pred_df[col],
-                    mode="lines", name=col.upper(),
-                    line=dict(width=1), opacity=0.35,
-                ))
-            fig2.add_trace(go.Scatter(
-                x=pred_df.index, y=pred_df["ensemble"],
-                mode="lines+markers", name="Best Estimate",
-                line=dict(width=2.5, color="#1f77b4"),
-            ))
-            fig2.update_layout(
-                title=f"{ticker} — {forecast_days}-day price forecast",
-                xaxis_title="Date", yaxis_title="Price (USD)", height=380,
-            )
+            fig2.update_layout(title=f"{ticker} — {forecast_days}-day Directional Trajectory", xaxis_title="Date", yaxis_title="Price (USD)", height=380)
             st.plotly_chart(fig2, use_container_width=True)
-            with st.expander("View forecast numbers"):
-                st.dataframe(pred_df[["ensemble"]].rename(
-                    columns={"ensemble": "Best Estimate ($)"}
-                ).style.format("${:.2f}"), use_container_width=True)
+            
+            with st.expander("View Daily Signal Breakdown"):
+                st.dataframe(pred_df, use_container_width=True)
 
-        # Price + financial report
         if st.session_state.predictions is not None:
             try:
                 fin_data = load_financials(ticker, quarterly=False)
                 st.session_state.financials = fin_data
-                company_info_r, _ = load_data(ticker)
                 rg = ReportGenerator()
-                report = rg.generate_financial_report(
-                    ticker, company_info_r, fin_data,
-                    st.session_state.predictions,
-                )
-                st.session_state.price_report = report
-            except Exception:
-                pass
+                st.session_state.price_report = rg.generate_financial_report(ticker, company_info, fin_data, st.session_state.predictions)
+            except: pass
 
         if st.session_state.price_report:
-            st.markdown('<h2 class="sub-header">Financial Summary</h2>',
-                        unsafe_allow_html=True)
+            st.markdown('<h2 class="sub-header">Financial Summary</h2>', unsafe_allow_html=True)
             st.markdown(st.session_state.price_report)
 
     else:
